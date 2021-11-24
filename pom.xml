@@ -1,0 +1,64 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>nrsoft.tasks</groupId>
+  <artifactId>tasks-ejb</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <packaging>ejb</packaging>
+
+  <dependencies> 
+ <!-- https://mvnrepository.com/artifact/javax/javaee-api -->
+<dependency>
+  <groupId>nrsoft.tasks</groupId>
+  <artifactId>tasks-ejb-api</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+</dependency>
+
+	<dependency>
+	    <groupId>javax</groupId>
+	    <artifactId>javaee-api</artifactId>
+	    <version>8.0</version>
+	    <scope>provided</scope>
+	</dependency>
+
+	<dependency>
+	    <groupId>org.modelmapper</groupId>
+	    <artifactId>modelmapper</artifactId>
+	    <version>2.4.4</version>
+	</dependency>
+	
+
+	
+	
+	 <!-- 
+	<dependency>
+	    <groupId>com.h2database</groupId>
+	    <artifactId>h2</artifactId>
+	    <version>1.4.200</version>
+	</dependency>	
+	 -->
+	
+
+ </dependencies>  
+  
+  <build>
+
+  
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <source>1.8</source>
+          <target>1.8</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <artifactId>maven-ejb-plugin</artifactId>
+        <version>3.0.1</version>
+        <configuration>
+          <ejbVersion>3.2</ejbVersion>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

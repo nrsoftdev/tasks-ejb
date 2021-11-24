@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+    <persistence xmlns="http://java.sun.com/xml/ns/persistence">
+        <persistence-unit name ="processDefinition" transaction-type="JTA">
+        
+            <jta-data-source>jdbc/Tasks</jta-data-source>
+	    	<class>nrsoft.tasks.model.TaskDefinition</class>
+	    	<class>nrsoft.tasks.model.User</class>
+	    	<class>nrsoft.tasks.model.Role</class>
+	    	<class>nrsoft.tasks.model.JdbcConnector</class>
+	    	<class>nrsoft.tasks.model.TextConnector</class>
+	    	<class>nrsoft.tasks.model.ProcessDefinition</class>
+	    	<class>nrsoft.tasks.model.InitialProperty</class>
+	    	<class>nrsoft.tasks.model.ProcessDefinition</class>
+	    	<class>nrsoft.tasks.model.Process</class>
+	    	<class>nrsoft.tasks.model.TaskCollection</class>
+	    	<class>nrsoft.tasks.model.TaskCollectionMember</class>
+            
+            <properties>
+            <!--  
+                <property name="eclipselink.target-database" value="Auto"/>
+                <property name="eclipselink.target-server" value="Glassfish"/>
+             -->
+                <property name="eclipselink.logging.level" value="FINE"/>
+                
+                
+                <property name="eclipselink.logging.level.sql" value="FINE"/>
+                <property name="eclipselink.logging.parameters" value="true"/>
+            </properties>
+        </persistence-unit>
+    </persistence>
