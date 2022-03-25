@@ -143,6 +143,24 @@ public class TextConnectorBean implements TextConnector {
 		
 	}
 
+	@Override
+	public TextConnectorDTO getTextConnectorByName(String name) {
+		TasksDaoJPA processDAO = new TasksDaoJPA(em);
+		nrsoft.tasks.model.TextConnector textConn = null;
+		try {
+			textConn = processDAO.getTextConnectorByName(name);
+		} catch(javax.persistence.NoResultException e) {
+			logger.info("Text connector not found " + name, e);
+		}
+		
+		try {
+			processDAO.close();
+		} catch (IOException e) {
+			logger.warn("Error closing dao", e);
+		}
+		
+		return convertToDto(textConn);	}
+
 	
 	
 

@@ -14,6 +14,9 @@
 	    	<class>nrsoft.tasks.model.Process</class>
 	    	<class>nrsoft.tasks.model.TaskCollection</class>
 	    	<class>nrsoft.tasks.model.TaskCollectionMember</class>
+	    	<class>nrsoft.tasks.model.ProcessDefinitionVariable</class>
+    		<class>nrsoft.tasks.model.ProcessVariable</class>
+	    	
             
             <properties>
             <!--  

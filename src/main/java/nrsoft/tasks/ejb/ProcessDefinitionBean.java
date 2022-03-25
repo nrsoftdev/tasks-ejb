@@ -10,24 +10,39 @@ import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
+import javax.annotation.Resource;
 import javax.ejb.EJB;
 import javax.ejb.Stateless;
+import javax.enterprise.concurrent.ManagedExecutorService;
+import javax.enterprise.inject.Any;
+import javax.enterprise.inject.Instance;
+import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import javax.xml.bind.JAXBException;
 
+import org.modelmapper.Converters.Converter;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeMap;
 import org.modelmapper.config.Configuration;
 import org.modelmapper.convention.MatchingStrategies;
+import org.modelmapper.spi.DestinationSetter;
+import org.modelmapper.spi.SourceGetter;
 import org.modelmapper.spi.ValueReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,11 +53,14 @@ import nrsoft.tasks.Task;
 import nrsoft.tasks.TaskResult;
 import nrsoft.tasks.dto.ProcessDTO;
 import nrsoft.tasks.dto.ProcessDefinitionDTO;
+import nrsoft.tasks.dto.ProcessDefinitionVariableDTO;
 import nrsoft.tasks.dto.TaskDefinitionDTO;
 import nrsoft.tasks.dto.TextConnectorDTO;
 import nrsoft.tasks.logger.LoggerProvider;
 import nrsoft.tasks.logger.LoggersProvider;
+import nrsoft.tasks.metadata.ProcessVariableType;
 import nrsoft.tasks.model.ProcessDefinition;
+import nrsoft.tasks.model.ProcessDefinitionVariable;
 import nrsoft.tasks.model.TaskDefinition;
 import nrsoft.tasks.persistance.TasksDaoJPA;
 import nrsoft.tasks.runtime.Process;
@@ -59,13 +77,14 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 	private static Logger logger = LoggerFactory.getLogger(ProcessDefinitionBean.class);
 	
 	@PersistenceContext(unitName="processDefinition") 
-	protected EntityManager em;
+	protected EntityManager entityManager;
 	
-	// private UserTransaction ut;
+	@Resource(name = "DefaultManagedExecutorService")
+	ManagedExecutorService executor;
 	
 	private ModelMapper modelMapper = new ModelMapper();
-
 	
+
 	public ProcessDefinitionBean()
 	{
 		/*InputStream stream = TaskSvc.class.getResourceAsStream("/config.properties");
@@ -78,12 +97,15 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 		*/
 		
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-		TypeMap<nrsoft.tasks.model.ProcessDefinition, ProcessDefinitionDTO> typeMap = modelMapper.createTypeMap(nrsoft.tasks.model.ProcessDefinition.class, ProcessDefinitionDTO.class);
+		TypeMap<nrsoft.tasks.model.ProcessDefinition, ProcessDefinitionDTO> typeMapProcessDefinition = modelMapper.createTypeMap(nrsoft.tasks.model.ProcessDefinition.class, ProcessDefinitionDTO.class);
 		
 		
-		typeMap.addMappings(mapper -> mapper.skip(ProcessDefinitionDTO::setTaskDefinitionDescription));
-		typeMap.addMappings(mapper -> mapper.skip(ProcessDefinitionDTO::setTaskDefinitionId));
-		typeMap.addMappings(mapper -> mapper.skip(ProcessDefinitionDTO::setTaskDefinitionName));
+		typeMapProcessDefinition.addMappings(mapper -> mapper.skip(ProcessDefinitionDTO::setTaskDefinitionDescription));
+		typeMapProcessDefinition.addMappings(mapper -> mapper.skip(ProcessDefinitionDTO::setTaskDefinitionId));
+		typeMapProcessDefinition.addMappings(mapper -> mapper.skip(ProcessDefinitionDTO::setTaskDefinitionName));
+		typeMapProcessDefinition.addMappings(mapper -> mapper.skip(ProcessDefinitionDTO::setVariables));
+		
+
 		
 
 	}
@@ -92,7 +114,7 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 	public List<ProcessDefinitionDTO> getProcessDefinitionList() {
 		
 	
-		TasksDaoJPA processDAO = new TasksDaoJPA(em);
+		TasksDaoJPA processDAO = new TasksDaoJPA(entityManager);
 		List<nrsoft.tasks.model.ProcessDefinition> list = processDAO.getProcessDefinitionList();
 		try {
 			processDAO.close();
@@ -112,7 +134,7 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 	@Override
 	public ProcessDefinitionDTO getProcessDefinition(long processId, long version) {
 		
-		TasksDaoJPA processDAO = new TasksDaoJPA(em);
+		TasksDaoJPA processDAO = new TasksDaoJPA(entityManager);
 		
 		nrsoft.tasks.model.ProcessDefinition processDefinition = processDAO.getProcessDefinitionById(processId, version);
 		
@@ -128,9 +150,11 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 	
 	@Override
 	public ProcessDefinitionDTO saveProcessDefinition(ProcessDefinitionDTO processDefinition) {
-		TasksDaoJPA dao = new TasksDaoJPA(em);
+		TasksDaoJPA dao = new TasksDaoJPA(entityManager);
 		
 		nrsoft.tasks.model.ProcessDefinition procDef = null;
+		
+		boolean newBean = false;
 		
 		
 		
@@ -139,25 +163,94 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 			procDef.setCreationUser(processDefinition.getCreationUser());
 			procDef.setCreationTime(OffsetDateTime.now());
 			procDef.setName(processDefinition.getName());
-
+			newBean = true;
+			/*
+			for(ProcessDefinitionVariableDTO variable : processDefinition.getVariables()) {
+				
+				ProcessDefinitionVariable pdv = new ProcessDefinitionVariable(
+						variable.getName(), variable.getType(), variable.getValue());
+				pdv.setProcessDefinition(procDef);
+				procDef.getVariables().add(pdv);
+				
+			}
+			*/
 		} else {
 			procDef = dao.getProcessDefinitionById(processDefinition.getProcessId(), processDefinition.getVersion());
 			procDef.setChangeUser(processDefinition.getChangeUser());
 			procDef.setChangeTime(OffsetDateTime.now());
+			
+			/*
+			List<ProcessDefinitionVariableDTO> newVars = new LinkedList<>();
+			for(ProcessDefinitionVariableDTO varDto : processDefinition.getVariables()) {
+				boolean found = false;
+				for(ProcessDefinitionVariable variable : procDef.getVariables()) {
+					
+					if(varDto.getName().equals(variable.getName())) {
+						found = true;
+					}
+				}
+				if(!found) {
+					newVars.add(varDto);
+				}
+			}
+			
+			List<ProcessDefinitionVariable> obsoleteVars = new LinkedList<>();
+			for(ProcessDefinitionVariable variable : procDef.getVariables()) {
+			
+				boolean found = false;
+				
+				for(ProcessDefinitionVariableDTO varDto : processDefinition.getVariables()) {		
+					if(varDto.getName().equals(variable.getName())) {
+						found = true;
+					}
+				}
+				if(!found) {
+					obsoleteVars.add(variable);
+				}
+			}
+			
+			for(ProcessDefinitionVariable obsoleteVar : obsoleteVars) {
+				procDef.getVariables().remove(obsoleteVar);
+			}
+			
+			
+			
+			for(ProcessDefinitionVariableDTO varDto : processDefinition.getVariables()) {
+				for(ProcessDefinitionVariable variable : procDef.getVariables()) {
+					
+					if(varDto.getName().equals(variable.getName())) {
+						variable.setValue(varDto.getValue());
+					}
+				}
+			}
+			
+			procDef.getVariables().clear();
+			for(ProcessDefinitionVariableDTO newVar : processDefinition.getVariables()) {
+				ProcessDefinitionVariable var = new ProcessDefinitionVariable(newVar.getName(), newVar.getType(), newVar.getValue());
+				var.setProcessDefinition(procDef);
+				procDef.getVariables().add(var);
+				
+			}
+			*/
 
+			
+			
 		}
 		
 		if(procDef!=null) {
 			
 			procDef.setDescription(processDefinition.getDescription());
-			procDef.setStartBeanName(processDefinition.getStartBeanName());
 			
-			TaskDefinition taskDefinition = dao.getTaskDefinitionById(processDefinition.getTaskDefinitionId());
-			
-			procDef.setTaskDefinition(taskDefinition);
-			
-			
-			dao.saveProcessDefinition(procDef);
+			if(newBean) {
+				TaskDefinition taskDefinition = dao.getTaskDefinitionById(processDefinition.getTaskDefinitionId());
+				
+				procDef.setTaskDefinition(taskDefinition);
+				procDef.setStartBeanName(taskDefinition.getName());
+
+				dao.saveProcessDefinition(procDef);
+			}
+			else 
+				dao.changeProcessDefinition(procDef);
 		}
 
 		try {
@@ -171,7 +264,7 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 
 	@Override
 	public boolean removeProcessDefinitionById(long processId, long version) {
-		TasksDaoJPA processDAO = new TasksDaoJPA(em);
+		TasksDaoJPA processDAO = new TasksDaoJPA(entityManager);
 		boolean ok = false;
 		
 		nrsoft.tasks.model.ProcessDefinition processDefinition = null;
@@ -197,7 +290,7 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 	public boolean generate(long processId, long version, String user) {
 		
 		boolean generated = true;
-		TasksDaoJPA processDAO = new TasksDaoJPA(em);
+		TasksDaoJPA processDAO = new TasksDaoJPA(entityManager);
 		
 		Beans beans = new Beans();
 		BeanCreator creator = new BeanCreator();
@@ -231,6 +324,114 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 		
 	}
 	
+	@Override
+	public boolean addVariable(long processId, long version, String name, ProcessVariableType type, String value) {
+	
+		TasksDaoJPA processDAO = new TasksDaoJPA(entityManager);
+		
+		ProcessDefinition pd = processDAO.getProcessDefinitionById(processId, version);
+		
+		
+		ProcessDefinitionVariable variable = new ProcessDefinitionVariable(name, type.getJavaType(), value);
+		
+		variable.setProcessDefinition(pd);
+		
+		processDAO.createProcessDefinitionVariable(variable);
+		
+		
+		try {
+			processDAO.close();
+		} catch (IOException e) {
+			logger.warn("Error closing dao", e);
+		}
+		
+		
+		
+		return true;
+	}
+
+	public boolean removeVariable(long processId, long version, String name) {
+		
+		TasksDaoJPA processDAO = new TasksDaoJPA(entityManager);
+		
+		boolean deleted = processDAO.removeProcessDefinitionVariable(processId, version, name);
+		
+		
+		try {
+			processDAO.close();
+		} catch (IOException e) {
+			logger.warn("Error closing dao", e);
+		}
+
+		return deleted;
+	}
+	
+	@Override
+	public boolean changeVariables(long processId, long version, List<ProcessDefinitionVariableDTO> variables) {
+		
+		TasksDaoJPA processDAO = new TasksDaoJPA(entityManager);
+		
+		ProcessDefinition pd = processDAO.getProcessDefinitionById(processId, version);
+		
+		Map<String,ProcessDefinitionVariable> actualVariables = new TreeMap<>();
+		Map<String,ProcessDefinitionVariableDTO> newVariables = new TreeMap<>();
+		
+		for(ProcessDefinitionVariable var1 : pd.getVariables()) {
+			actualVariables.put(var1.getName(), var1);
+		}
+		
+		for(ProcessDefinitionVariableDTO var2 : variables) {
+			newVariables.put(var2.getName(), var2);
+		}
+		
+		LinkedList<String> actualVariablesNames = new LinkedList<String>(actualVariables.keySet());
+		LinkedList<String> variablesNamesToRemove = new LinkedList<String>(actualVariables.keySet());
+		LinkedList<String> newVariablesNames = new LinkedList<String>(newVariables.keySet());
+		LinkedList<String> variablesNamesToAdd = new LinkedList<String>(newVariables.keySet());
+		
+		variablesNamesToRemove.removeAll(newVariablesNames);
+		variablesNamesToAdd.removeAll(actualVariablesNames);
+		
+		Iterator<ProcessDefinitionVariable> it = pd.getVariables().iterator();
+		for(String varName : variablesNamesToRemove) {
+			
+			while(it.hasNext()) {
+				ProcessDefinitionVariable currentVar = it.next();
+				if(currentVar.getName().equals(varName)) {
+					it.remove();
+					processDAO.removeProcessDefinitionVariable(currentVar);
+					break;
+				}
+			}
+		}
+		for(String varName : variablesNamesToAdd) {
+			
+			ProcessDefinitionVariableDTO newVarDTO = newVariables.get(varName);
+			ProcessDefinitionVariable newvar = new ProcessDefinitionVariable(
+					varName
+					, ProcessVariableType.valueOf(newVarDTO.getType()).getJavaType()
+					, newVarDTO.getValue());
+			newvar.setProcessDefinition(pd);
+			pd.getVariables().add(newvar);
+			entityManager.persist(newvar);
+		}
+		
+		if(variablesNamesToRemove.size()>0 && variablesNamesToAdd.size()>0) {
+			entityManager.merge(pd);
+		}
+		
+		
+		try {
+			processDAO.close();
+		} catch (IOException e) {
+			logger.warn("Error closing dao", e);
+		}
+		
+		return true;
+
+	}
+	
+	
 	
 	
 	private ProcessDefinitionDTO convertToDto(nrsoft.tasks.model.ProcessDefinition processDefinition) {
@@ -241,83 +442,20 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 		dto.setTaskDefinitionDescription(processDefinition.getTaskDefinition().getDescription());
 		dto.setTaskDefinitionName(processDefinition.getTaskDefinition().getName());
 		dto.setTaskDefinitionId(processDefinition.getTaskDefinition().getTaskId());
+		
+
+		if(processDefinition.getVariables()!=null) {
+			for(ProcessDefinitionVariable variable : processDefinition.getVariables()) {
+				dto.getVariables().add(new ProcessDefinitionVariableDTO(variable.getName(), variable.getValue()
+						, ProcessVariableType.getType(variable.getType())));
+			}
+		}
+
+		
 	    return dto;
 	}
 
-	@Override
-	public TaskResult run(long processId, long version, String user) {
-		
-		
-		TaskResult result = null;
-		
-		TasksDaoJPA processDAO = new TasksDaoJPA(em);
-
-		ProcessDefinition processDef = processDAO.getProcessDefinitionById(processId, version);
-		
-
-		/*
-		tempFile = File.createTempFile("task", ".xml");
-		FileWriter writer = new FileWriter(tempFile);
-		writer.write(processDef.getGeneratedCode());
-		writer.close();
-
-		String taskName = processDef.getStartBeanName();
-		TaskProviderSpringFilesystem taskProvider = new TaskProviderSpringFilesystem(tempFile.getAbsolutePath(), taskName);
-		
-		Task task = taskProvider.load();
-		
-		ProcessData processData = new ProcessData();
-		
-		nrsoft.tasks.runtime.Process process = new Process(task, processData);
-		nrsoft.tasks.model.Process processModel = processDAO.createProcess(process.getUUID(),  user, processDef);
-		
-		ProcessObserverPersistance observer = new ProcessObserverPersistance(processDAO,processModel);
-		
-		process.addObserver(observer);
-		*/
-		
-		ProcessObserverPersistance processObserver = new ProcessObserverPersistance(processDAO, processDef);
-		nrsoft.tasks.runtime.Process process = nrsoft.tasks.runtime.Process.create(user, processDef
-				, Arrays.asList(new ProcessObserver[] {  processObserver } ));
-		
-		LoggersProvider.buildLogger(process.getUUID());
-		
-		process.setLoggerProvider( new LoggerProvider(process.getUUID()) );
-		
-		process.run();
-		result = process.getResult();
-
-		
-		try {
-			processDAO.close();
-		} catch (IOException e) {
-			logger.warn("Error closing dao", e);
-		}
-			
-			
-		return result;
-	}
-
-	@Override
-	public ProcessDTO getProcessResult(String processId) {
-
-		TasksDaoJPA processDAO = new TasksDaoJPA(em);
-		
-		UUID uuid = UUID.fromString(processId);
-		nrsoft.tasks.model.Process process = processDAO.getProcess(uuid );
-		
-		ProcessDTO dto = modelMapper.map(process, ProcessDTO.class);
-		
-		try {
-			processDAO.close();
-		} catch (IOException e) {
-			logger.warn("Error closing dao", e);
-		}
-		
-		
-		
-		return dto;
-	}
+	
 
 
 }

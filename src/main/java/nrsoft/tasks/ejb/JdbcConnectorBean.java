@@ -48,6 +48,7 @@ public class JdbcConnectorBean implements JdbcConnector {
 			return null;
 				
 		JdbcConnectorDTO tcDto = modelMapper.map(jdbcConnector, JdbcConnectorDTO.class);
+		tcDto.setDBUser(jdbcConnector.getUser());
 	    return tcDto;
 	}
 	
@@ -85,7 +86,7 @@ public class JdbcConnectorBean implements JdbcConnector {
 		
 		jdbcConn.setDriver(jdbcConnector.getDriver());
 		jdbcConn.setUrl(jdbcConnector.getUrl());
-		jdbcConn.setUser(jdbcConnector.getUser());
+		jdbcConn.setUser(jdbcConnector.getDBUser());
 		jdbcConn.setPassword(jdbcConnector.getPassword());
 		
 		
