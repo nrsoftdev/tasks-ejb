@@ -5,9 +5,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.ejb.Stateless;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.ejb.Stateless;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -65,17 +65,20 @@ public class TextConnectorBean implements TextConnector {
 		if(connId>0)
 			try {
 				textConn = processDAO.getTextConnector(connId);
-			} catch(javax.persistence.NoResultException e) {
+			} catch(jakarta.persistence.NoResultException e) {
 				logger.warn("Text connector not found " + connId, e);
 			}
-		
+		boolean changed = false;
+		boolean insert = false;
 		if(textConn!=null) {
-		
-			textConn.setName(textConnector.getName());
-			textConn.setFilename(textConnector.getFilename());
-			textConn.setDescription(textConnector.getDescription());
-			textConn.setChangeTime(OffsetDateTime.now());
-			textConn.setChangeUser(textConnector.getChangeUser());
+			
+			if(textConnector.getName()!=null) { textConn.setName(textConnector.getName()); changed = true; }
+			if(textConnector.getFilename()!=null) { textConn.setFilename(textConnector.getFilename()); changed = true; }
+			if(textConnector.getDescription()!=null) { textConn.setDescription(textConnector.getDescription()); changed = true; }
+			if(changed) {
+				textConn.setChangeTime(OffsetDateTime.now());
+				textConn.setChangeUser(textConnector.getChangeUser());
+			}
 		} else  {
 			
 			textConn = new nrsoft.tasks.model.TextConnector();
@@ -84,9 +87,10 @@ public class TextConnectorBean implements TextConnector {
 			textConn.setDescription(textConnector.getDescription());
 			textConn.setCreationTime(OffsetDateTime.now());
 			textConn.setCreationUser(textConnector.getCreationUser());
+			insert = true;
 		}
-		
-		processDAO.saveTextConnector(textConn);
+		if(changed || insert)
+			processDAO.saveTextConnector(textConn);
 		
 		try {
 			processDAO.close();
@@ -103,7 +107,7 @@ public class TextConnectorBean implements TextConnector {
 		nrsoft.tasks.model.TextConnector textConn = null;
 		try {
 			textConn = processDAO.getTextConnector(connId);
-		} catch(javax.persistence.NoResultException e) {
+		} catch(jakarta.persistence.NoResultException e) {
 			logger.info("Text connector not found " + connId, e);
 		}
 		
@@ -124,7 +128,7 @@ public class TextConnectorBean implements TextConnector {
 		nrsoft.tasks.model.TextConnector textConnector = null;
 		try {
 			textConnector = processDAO.getTextConnector(connId);
-		} catch(javax.persistence.NoResultException e) {
+		} catch(jakarta.persistence.NoResultException e) {
 			logger.info("Text connector not found " + connId, e);
 		}
 		if(textConnector!=null) {
@@ -149,7 +153,7 @@ public class TextConnectorBean implements TextConnector {
 		nrsoft.tasks.model.TextConnector textConn = null;
 		try {
 			textConn = processDAO.getTextConnectorByName(name);
-		} catch(javax.persistence.NoResultException e) {
+		} catch(jakarta.persistence.NoResultException e) {
 			logger.info("Text connector not found " + name, e);
 		}
 		

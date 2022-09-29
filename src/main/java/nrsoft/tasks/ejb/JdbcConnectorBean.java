@@ -5,9 +5,9 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.ejb.Stateless;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.ejb.Stateless;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -48,7 +48,7 @@ public class JdbcConnectorBean implements JdbcConnector {
 			return null;
 				
 		JdbcConnectorDTO tcDto = modelMapper.map(jdbcConnector, JdbcConnectorDTO.class);
-		tcDto.setDBUser(jdbcConnector.getUser());
+		tcDto.setDbuser(jdbcConnector.getUser());
 	    return tcDto;
 	}
 	
@@ -66,7 +66,7 @@ public class JdbcConnectorBean implements JdbcConnector {
 		if(connId>0)
 			try {
 				jdbcConn = processDAO.getJdbcConnector(connId);
-			} catch(javax.persistence.NoResultException e) {
+			} catch(jakarta.persistence.NoResultException e) {
 				logger.warn("Text connector not found " + connId, e);
 			}
 		
@@ -86,7 +86,7 @@ public class JdbcConnectorBean implements JdbcConnector {
 		
 		jdbcConn.setDriver(jdbcConnector.getDriver());
 		jdbcConn.setUrl(jdbcConnector.getUrl());
-		jdbcConn.setUser(jdbcConnector.getDBUser());
+		jdbcConn.setUser(jdbcConnector.getDbuser());
 		jdbcConn.setPassword(jdbcConnector.getPassword());
 		
 		
@@ -107,7 +107,7 @@ public class JdbcConnectorBean implements JdbcConnector {
 		nrsoft.tasks.model.JdbcConnector textConn = null;
 		try {
 			textConn = processDAO.getJdbcConnector(connId);
-		} catch(javax.persistence.NoResultException e) {
+		} catch(jakarta.persistence.NoResultException e) {
 			logger.info("Text connector not found " + connId, e);
 		}
 		
@@ -128,7 +128,7 @@ public class JdbcConnectorBean implements JdbcConnector {
 		nrsoft.tasks.model.JdbcConnector JdbcConnector = null;
 		try {
 			JdbcConnector = processDAO.getJdbcConnector(connId);
-		} catch(javax.persistence.NoResultException e) {
+		} catch(jakarta.persistence.NoResultException e) {
 			logger.info("Text connector not found " + connId, e);
 		}
 		if(JdbcConnector!=null) {

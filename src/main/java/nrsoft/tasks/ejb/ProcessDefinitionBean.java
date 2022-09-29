@@ -1,72 +1,34 @@
 package nrsoft.tasks.ejb;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.Serializable;
 import java.time.OffsetDateTime;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
 import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import javax.annotation.Resource;
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
-import javax.enterprise.concurrent.ManagedExecutorService;
-import javax.enterprise.inject.Any;
-import javax.enterprise.inject.Instance;
-import javax.inject.Inject;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.xml.bind.JAXBException;
 
-import org.modelmapper.Converters.Converter;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeMap;
-import org.modelmapper.config.Configuration;
 import org.modelmapper.convention.MatchingStrategies;
-import org.modelmapper.spi.DestinationSetter;
-import org.modelmapper.spi.SourceGetter;
-import org.modelmapper.spi.ValueReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.schema.beans.Beans;
 
-import nrsoft.tasks.ProcessData;
-import nrsoft.tasks.Task;
-import nrsoft.tasks.TaskResult;
-import nrsoft.tasks.dto.ProcessDTO;
+import jakarta.annotation.Resource;
+import jakarta.ejb.Stateless;
+import jakarta.enterprise.concurrent.ManagedExecutorService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import nrsoft.tasks.dto.ProcessDefinitionDTO;
 import nrsoft.tasks.dto.ProcessDefinitionVariableDTO;
-import nrsoft.tasks.dto.TaskDefinitionDTO;
-import nrsoft.tasks.dto.TextConnectorDTO;
-import nrsoft.tasks.logger.LoggerProvider;
-import nrsoft.tasks.logger.LoggersProvider;
 import nrsoft.tasks.metadata.ProcessVariableType;
 import nrsoft.tasks.model.ProcessDefinition;
 import nrsoft.tasks.model.ProcessDefinitionVariable;
 import nrsoft.tasks.model.TaskDefinition;
 import nrsoft.tasks.persistance.TasksDaoJPA;
-import nrsoft.tasks.runtime.Process;
-import nrsoft.tasks.runtime.ProcessObserver;
-import nrsoft.tasks.runtime.ProcessObserverPersistance;
-import nrsoft.tasks.runtime.TaskProviderSpringFilesystem;
 import nrsoft.tasks.spring.BeanCreator;
 import nrsoft.tasks.spring.XmlSpringConfigurationBuilder;
 
@@ -270,7 +232,7 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 		nrsoft.tasks.model.ProcessDefinition processDefinition = null;
 		try {
 			processDefinition = processDAO.getProcessDefinitionById(processId, version);
-		} catch(javax.persistence.NoResultException e) {
+		} catch(jakarta.persistence.NoResultException e) {
 			logger.info("Process Definition not found " + processId, e);
 		}
 		if(processDefinition!=null) {
@@ -308,7 +270,7 @@ public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition
 			
 			processDAO.saveProcessDefinition(processDefinition);
 			
-		} catch (JAXBException | IOException e) {
+		} catch (IOException | jakarta.xml.bind.JAXBException e) {
 			e.printStackTrace();
 			generated = false;
 		}

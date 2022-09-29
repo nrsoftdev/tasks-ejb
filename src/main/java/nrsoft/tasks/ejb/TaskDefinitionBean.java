@@ -9,9 +9,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
-import javax.ejb.Stateless;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.ejb.Stateless;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeMap;
@@ -26,10 +26,11 @@ import nrsoft.tasks.metadata.MetadataDefinition;
 import nrsoft.tasks.model.InitialProperty;
 import nrsoft.tasks.model.TaskCollection;
 import nrsoft.tasks.model.TaskCollectionMember;
+import nrsoft.tasks.model.TaskDefinition;
 import nrsoft.tasks.persistance.TasksDaoJPA;
 
 @Stateless
-public class TaskDefinitionBean implements TaskDefinition {
+public class TaskDefinitionBean implements nrsoft.tasks.ejb.TaskDefinition {
 	
 	public TaskDefinitionBean() {
 		modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -108,39 +109,13 @@ public class TaskDefinitionBean implements TaskDefinition {
 	}
 
 	@Override
-	public TaskDefinitionDTO saveTaskDefinition(TaskDefinitionDTO taskDefinition) {
+	public TaskDefinitionDTO createTaskDefinition(TaskDefinitionDTO taskDefinitionDTO) {
 		TasksDaoJPA processDAO = new TasksDaoJPA(em);
-		nrsoft.tasks.model.TaskDefinition taskDef;
+		nrsoft.tasks.model.TaskDefinition taskDef = mapDtoToEntity(taskDefinitionDTO);
 		
+		taskDef.setCreationTime(OffsetDateTime.now());
+		taskDef.setCreationUser(taskDefinitionDTO.getCreationUser());
 		
-		
-		if(taskDefinition.getTaskId()==0) {
-			taskDef = mapDtoToEntity(taskDefinition);
-			
-		} else {
-			
-			taskDef = processDAO.getTaskDefinitionById(taskDefinition.getTaskId());
-			taskDef.setChangeTime(OffsetDateTime.now());
-			taskDef.setChangeUser(taskDefinition.getChangeUser());
-			Map<String, String> props = taskDefinition.getProperties();
-			
-			for(InitialProperty initProp: taskDef.getInitialProperties()) {
-				
-				
-				
-				if(props.containsKey(initProp.initialPropertyId.getName())) {
-				
-					initProp.setValue(props.get(initProp.initialPropertyId.getName()));
-					initProp.setChangeUser(taskDefinition.getChangeUser());
-					initProp.setChangeTime(OffsetDateTime.now());
-				}
-			}
-			
-		}
-		
-		
-		taskDef.setConnectorName(taskDefinition.getConnectorName());
-		taskDef.setDescription(taskDefinition.getDescription());
 		
 		processDAO.saveTaskDefinition(taskDef);
 		
@@ -155,20 +130,117 @@ public class TaskDefinitionBean implements TaskDefinition {
 
 		return newDTO;
 	}
+	
+	
+	@Override
+	public TaskDefinitionDTO updateTaskDefinition(TaskDefinitionDTO taskDefinitionDTO) {
+		
+		
+		TasksDaoJPA processDAO = new TasksDaoJPA(em);
+		
+		
+		nrsoft.tasks.model.TaskDefinition taskDef = processDAO.getTaskDefinitionById(taskDefinitionDTO.getTaskId());
+		
+		taskDef.setChangeTime(OffsetDateTime.now());
+		taskDef.setChangeUser(taskDefinitionDTO.getChangeUser());
+		
+		taskDef.setName(taskDefinitionDTO.getName());
+		taskDef.setDescription(taskDefinitionDTO.getDescription());
+		
+		processDAO.saveTaskDefinition(taskDef);
+		
+		TaskDefinitionDTO newDTO = convertToDto(taskDef);		
 
-	private nrsoft.tasks.model.TaskDefinition mapDtoToEntity(TaskDefinitionDTO taskDefinition) {
 		
-		Map<String, String> props = taskDefinition.getProperties();
-		nrsoft.tasks.model.TaskDefinition taskDef;
-		taskDef = new nrsoft.tasks.model.TaskDefinition();
-		taskDef.setCreationTime(OffsetDateTime.now());
-		taskDef.setCreationUser(taskDefinition.getCreationUser());
-		taskDef.setClassName(taskDefinition.getClassName());
-		taskDef.setName(taskDefinition.getName());
+		try {
+			processDAO.close();
+		} catch (IOException e) {
+			logger.warn("Error closing processDAO",e);
+		}		
+
+		return newDTO;
+	}
+
+	@Override
+	public TaskDefinitionDTO updateTaskDefinitionProperties(TaskDefinitionDTO taskDefinitionDTO) {
+		TasksDaoJPA processDAO = new TasksDaoJPA(em);
+		nrsoft.tasks.model.TaskDefinition taskDef = processDAO.getTaskDefinitionById(taskDefinitionDTO.getTaskId());
 		
-		for(Entry<String, String> entry : props.entrySet()) {
+		Map<String, String> newInitProp = taskDefinitionDTO.getProperties();
 		
-			InitialProperty initProp = new InitialProperty(taskDef, entry.getKey(), entry.getValue());
+		
+		// new value for existing properties
+		
+		for(InitialProperty initProp : taskDef.getInitialProperties()) {
+			
+			String newValue = newInitProp.get(initProp.initialPropertyId.getName());
+			String oldValue = initProp.getValue();
+			if(newValue!=null && !oldValue.equals(newValue)) {
+				
+				initProp.setValue(newValue);
+				initProp.setChangeUser(taskDefinitionDTO.getChangeUser());
+				initProp.setChangeTime(OffsetDateTime.now());
+			}
+		}
+		
+		
+		List<InitialProperty> toRemove = new LinkedList<>();
+		// remove properties
+		for(InitialProperty initProp : taskDef.getInitialProperties()) {
+			if(!taskDefinitionDTO.getProperties().containsKey(initProp.initialPropertyId.getName())) {
+				toRemove.add(initProp);
+				processDAO.removeInitialProperty(initProp);
+			}
+			
+		}
+		taskDef.getInitialProperties().removeAll(toRemove);		
+		
+		List<InitialProperty> toAdd = new LinkedList<>();
+		for(Entry<String, String> property : taskDefinitionDTO.getProperties().entrySet()) {
+			boolean found = false;
+			for(InitialProperty initProp : taskDef.getInitialProperties()) {
+				if(property.getKey().equals(initProp.initialPropertyId.getName())) {
+					found = true;
+				}
+			}
+			if(!found) {
+				toAdd.add(new InitialProperty(taskDef, property.getKey(), property.getValue()));
+			}
+		}
+		
+		
+
+		taskDef.getInitialProperties().addAll(toAdd);
+		
+		
+		
+		
+		processDAO.saveTaskDefinition(taskDef);
+		
+		TaskDefinitionDTO newDTO = convertToDto(taskDef);		
+		
+		
+		try {
+			processDAO.close();
+		} catch (IOException e) {
+			logger.warn("Error closing processDAO",e);
+		}		
+
+		return newDTO;
+	}	
+
+	private nrsoft.tasks.model.TaskDefinition mapDtoToEntity(TaskDefinitionDTO taskDefDto) {
+		
+		Map<String, String> propsDto = taskDefDto.getProperties();
+		nrsoft.tasks.model.TaskDefinition taskDef = new nrsoft.tasks.model.TaskDefinition();
+		taskDef.setTaskId(taskDefDto.getTaskId());
+		taskDef.setClassName(taskDefDto.getClassName());
+		taskDef.setName(taskDefDto.getName());
+		taskDef.setConnectorName(taskDefDto.getConnectorName());
+		
+		for(Entry<String, String> propDto : propsDto.entrySet()) {
+		
+			InitialProperty initProp = new InitialProperty(taskDef, propDto.getKey(), propDto.getValue());
 			taskDef.getInitialProperties().add(initProp);
 		}
 		return taskDef;
@@ -245,15 +317,20 @@ public class TaskDefinitionBean implements TaskDefinition {
 			 
 			 List<TaskCollectionMember> members = taskCollection.getMembers();
 			 if(members!=null) {
+				 TaskCollectionMember memberToRemove = null;
 				 for(TaskCollectionMember member : members) {
 					 if(member.getTaskDefinition().getTaskId() == childTaskId) {
 						 processDAO.removeTaskCollectionMember(member);
+						 memberToRemove = member;
 					 }
 					 
 				 }
+				 if(memberToRemove!=null)
+					 members.remove(memberToRemove);
 			 }
 		}
 		
+		processDAO.saveTaskDefinition(parentTask);
 		
 		try {
 			processDAO.close();
@@ -270,6 +347,43 @@ public class TaskDefinitionBean implements TaskDefinition {
 		// TODO Auto-generated method stub
 		return false;
 	}
+	
+	@Override
+	public boolean attachChildrenTaskDefinition(long parentTaskId, long childTaskId) {
+		TasksDaoJPA processDAO = new TasksDaoJPA(em);	
+		boolean ok = true;
+		
+		nrsoft.tasks.model.TaskDefinition parentTask = processDAO.getTaskDefinitionById(parentTaskId);
+		nrsoft.tasks.model.TaskDefinition childTask = processDAO.getTaskDefinitionById(childTaskId);
+		
+		if(parentTask.getTaskCollection()==null) {
+			parentTask.setTaskCollection( new TaskCollection(parentTask));
+		}
+		 TaskCollection taskCollection = parentTask.getTaskCollection();
+		 
+		 List<TaskCollectionMember> members = taskCollection.getMembers();
+		 if(members==null) {
+			 members = new LinkedList<TaskCollectionMember>();
+		 }
+		 int position = 0;
+		 for(TaskCollectionMember member : members) {
+			 if(member.getPosition()>position)
+				 position = member.getPosition(); 
+		 }
+		 TaskCollectionMember newMember = new TaskCollectionMember(childTask, position+1);
+		 newMember.setTaskCollection(taskCollection);
+		members.add(newMember);
+
+		processDAO.saveTaskDefinition(parentTask);
+		
+		try {
+			processDAO.close();
+		} catch (IOException e) {
+			logger.warn("Error closing processDAO",e);
+		}
+		
+		return ok;
+	}	
 	
 	private TaskDefinitionDTO convertToDto(nrsoft.tasks.model.TaskDefinition taskDefinition) {
 		if(taskDefinition==null)
@@ -298,6 +412,10 @@ public class TaskDefinitionBean implements TaskDefinition {
 		//dto.setTaskDefinitionId(processDefinition.getTaskDefinition().getTaskId());
 	    return dto;
 	}
+
+
+
+
 
 
 
