@@ -16,8 +16,8 @@ import jakarta.persistence.PersistenceContext;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeMap;
 import org.modelmapper.convention.MatchingStrategies;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import nrsoft.tasks.dto.ProcessDefinitionDTO;
 import nrsoft.tasks.dto.TaskDefinitionDTO;
@@ -43,7 +43,7 @@ public class TaskDefinitionBean implements nrsoft.tasks.ejb.TaskDefinition {
 
 	}
 	
-	private static Logger logger = LoggerFactory.getLogger(TaskDefinitionBean.class);
+	private static Logger logger = LogManager.getLogger(TaskDefinitionBean.class);
 	
 	@PersistenceContext(unitName="processDefinition") 
 	protected EntityManager em;

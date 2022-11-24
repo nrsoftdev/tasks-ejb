@@ -8,8 +8,8 @@ import jakarta.annotation.Resource;
 
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import jakarta.ejb.Stateless;
 import jakarta.enterprise.concurrent.ManagedExecutorService;
@@ -23,11 +23,13 @@ import nrsoft.tasks.logger.LoggersProvider;
 import nrsoft.tasks.model.ProcessDefinition;
 import nrsoft.tasks.persistance.TasksDaoJPA;
 import nrsoft.tasks.runtime.ProcessObserver;
+import nrsoft.tasks.runtime.ProcessObserverOutputManager;
+import nrsoft.tasks.runtime.Processes;
 
 @Stateless
 public class ProcessBean implements Process  {
 	
-	private static Logger logger = LoggerFactory.getLogger(ProcessBean.class);
+	private static Logger logger = LogManager.getLogger(ProcessBean.class);
 	
 	private @Inject Instance<ProcessObserverPersistanceManaged> processObserverPersistanceManagedInstance;
 	
@@ -51,6 +53,10 @@ public class ProcessBean implements Process  {
 
 		ProcessDefinition processDef = processDAO.getProcessDefinitionById(processDefinitionId, version);
 		
+		synchronized(Processes.class) {
+			Processes.bootstrap(processDAO);
+		}
+		
 		
 		/*
 		ProcessObserver processObserver = new ProcessObserverPersistanceManaged(processDef
@@ -66,11 +72,14 @@ public class ProcessBean implements Process  {
 		
 		nrsoft.tasks.model.Process processMdl = processDAO.createProcess(process.getUUID(), user, processDef);
 		processObserver.setProcessModel(processMdl);
+		
+		ProcessObserverOutputManager processOutputObserver = new ProcessObserverOutputManager();
+		
 				
 		nrsoft.tasks.runtime.Process.setup(process
 				, user
 				, processDef
-				, Arrays.asList(new ProcessObserver[] { processObserver }));
+				, Arrays.asList(new ProcessObserver[] { processObserver, processOutputObserver }));
 		
 		LoggersProvider.buildLogger(process.getUUID());
 		

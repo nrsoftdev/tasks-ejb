@@ -13,8 +13,8 @@ import java.util.stream.Collectors;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeMap;
 import org.modelmapper.convention.MatchingStrategies;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.schema.beans.Beans;
 
 import jakarta.annotation.Resource;
@@ -36,7 +36,7 @@ import nrsoft.tasks.spring.XmlSpringConfigurationBuilder;
 @Stateless
 public class ProcessDefinitionBean implements nrsoft.tasks.ejb.ProcessDefinition {
 	
-	private static Logger logger = LoggerFactory.getLogger(ProcessDefinitionBean.class);
+	private static Logger logger = LogManager.getLogger(ProcessDefinitionBean.class);
 	
 	@PersistenceContext(unitName="processDefinition") 
 	protected EntityManager entityManager;

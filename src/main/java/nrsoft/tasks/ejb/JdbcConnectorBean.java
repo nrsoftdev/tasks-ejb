@@ -10,8 +10,8 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import nrsoft.tasks.dto.JdbcConnectorDTO;
 import nrsoft.tasks.persistance.TasksDaoJPA;
@@ -19,7 +19,7 @@ import nrsoft.tasks.persistance.TasksDaoJPA;
 @Stateless
 public class JdbcConnectorBean implements JdbcConnector {
 	
-	private static Logger logger = LoggerFactory.getLogger(JdbcConnectorBean.class);
+	private static Logger logger = LogManager.getLogger(JdbcConnectorBean.class);
 	
 	@PersistenceContext(unitName="processDefinition") 
 	protected EntityManager em;
