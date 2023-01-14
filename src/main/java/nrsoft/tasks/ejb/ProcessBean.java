@@ -2,12 +2,16 @@ package nrsoft.tasks.ejb;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.UUID;
 
 import jakarta.annotation.Resource;
 
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
+
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -115,6 +119,30 @@ public class ProcessBean implements Process  {
 		
 		
 		return dto;
+	}
+
+	@Override
+	public List<ProcessDTO> getList(String owner, int pageNum, int pageSize) {
+		TasksDaoJPA processDAO = new TasksDaoJPA(entityManager);
+		
+		List<ProcessDTO> list = new LinkedList<>();
+		
+		List<nrsoft.tasks.model.Process> processList = processDAO.getProcessList(pageNum, pageSize);
+		
+		for(nrsoft.tasks.model.Process process: processList) {
+		
+			ProcessDTO dto = modelMapper.map(process, ProcessDTO.class);
+			list.add(dto);
+			
+		}
+
+		try {
+			processDAO.close();
+		} catch (IOException e) {
+			logger.warn("Error closing dao", e);
+		}
+				
+		return list;
 	}
 	
 	

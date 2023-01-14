@@ -89,11 +89,6 @@ public class TaskDefinitionBean implements nrsoft.tasks.ejb.TaskDefinition {
 	
 	
 	@Override
-	public List<TaskDefinitionDTO> searchTaskDefinitionList(String name, String description, String className) {
-		return this.searchTaskDefinitionList(name, description, className, 0, 0 );
-	}
-	
-	@Override
 	public List<TaskDefinitionDTO> searchTaskDefinitionList(String name, String description, String className, int pageNum, int pageSize) {
 		TasksDaoJPA processDAO = new TasksDaoJPA(em);
 		List<nrsoft.tasks.model.TaskDefinition> list = processDAO.searchTaskDefinitionList(name, description, className, pageNum, pageSize);
